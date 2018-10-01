@@ -1,0 +1,12 @@
+builders:
+  build_metadata:
+    import: "package:build_metadata/builder.dart"
+    builder_factories: ["buildMetadata"]
+    build_extensions: {".dart": [".g.dart"]}
+    auto_apply: root_package
+  build_metadata_to_source:
+    import: "package:build_metadata/builder.dart"
+    builder_factories: ["buildMetadata"]
+    build_extensions: {".dart": [".g.dart"]}
+    build_to: source
+    auto_apply: none

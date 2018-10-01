@@ -1,0 +1,13 @@
+# Builds
+build/
+
+# Generated Dart files
+.dart_tool/
+
+# Pub cache
+.pub/
+.packages
+pubspec.lock
+
+# VSCode Workspace
+.vscode/
