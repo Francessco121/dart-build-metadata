@@ -1,80 +1,46 @@
-import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/dart/element/type.dart';
-import 'package:build/build.dart';
-import 'package:code_builder/code_builder.dart';
-import 'package:source_gen/source_gen.dart' as source_gen;
+import 'dart:async';
 
-import 'build_metadata.dart';
+import 'package:build/build.dart';
+import 'package:built_collection/built_collection.dart';
+import 'package:code_builder/code_builder.dart';
 
 Builder buildMetadata(BuilderOptions options) {
-  return source_gen.LibraryBuilder(
-    _BuildMetadataGenerator(),
-    generatedExtension: '.g.dart'
-  );
+  return _BuildMetadataBuilder();
 }
 
-const _baseTypeChecker = source_gen.TypeChecker.fromRuntime(BuildMetadataBase);
-
-class _BuildMetadataGenerator extends source_gen.Generator {
+class _BuildMetadataBuilder implements Builder {
   @override
-  String generate(source_gen.LibraryReader library, BuildStep buildStep) {
-    final String libraryName = library.element.librarySource.shortName;
+  final buildExtensions = const {
+    r'$lib$': ['src/build_metadata.dart']
+  };
 
-    // Generate classes
-    final List<Class> classes = [];
-
-    for (final ClassElement classElement in library.classElements) {
-      if (!classElement.isAbstract || classElement.isPrivate || classElement.supertype == null) {
-        continue;
-      }
-
-      bool implementsBuildMetadata = false;
-
-      for (final InterfaceType interface in classElement.interfaces) {
-        if (_baseTypeChecker.isExactlyType(interface)) {
-          implementsBuildMetadata = true;
-          break;
-        }
-      }
-      
-      if (implementsBuildMetadata) {
-        classes.add(_generateClass(classElement));
-      }
-    }
-
-    if (classes.isEmpty) {
-      return null;
-    }
+  @override
+  Future<void> build(BuildStep buildStep) async {
+    // Get the build timestamp
+    final int msSinceEpoch = DateTime.now().millisecondsSinceEpoch;
 
     // Generate library
     final generatedLibrary = Library((l) => l
-      ..directives.add(Directive((d) => d
-        ..url = libraryName
-        ..type = DirectiveType.import
-        ..show.addAll(classes.map((c) => c.extend.symbol))
+      ..body.add(Field((f) => f
+        ..modifier = FieldModifier.final$
+        ..type = refer('DateTime')
+        ..name = 'timestamp'
+        ..assignment = Code(
+          'DateTime.fromMillisecondsSinceEpoch($msSinceEpoch)'
+        )
+        ..docs = ListBuilder<String>(const [
+          '/// The date and time of when this package was built.'
+        ])
       ))
-      ..body.addAll(classes)
     );
 
     // Emit code
     final emitter = new DartEmitter(Allocator.simplePrefixing());
+    final String fileContents = generatedLibrary.accept(emitter).toString();
 
-    return generatedLibrary.accept(emitter).toString();
-  }
+    // Write file
+    final assetId = new AssetId(buildStep.inputId.package, 'lib/src/build_metadata.dart');
 
-  Class _generateClass(ClassElement classElement) {
-    return Class((c) => c 
-      ..name = '\$${classElement.name}Embedded'
-      ..extend = refer(classElement.name)
-      ..fields.add(Field((f) => f
-        ..name = 'buildTimestamp'
-        ..annotations.add(refer('override'))
-        ..modifier = FieldModifier.final$
-        ..type = refer('DateTime')
-        ..assignment = Code(
-          'DateTime.fromMillisecondsSinceEpoch(${DateTime.now().millisecondsSinceEpoch})'
-        )
-      ))
-    );
+    await buildStep.writeAsString(assetId, fileContents);
   }
 }
