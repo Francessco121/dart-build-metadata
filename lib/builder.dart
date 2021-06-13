@@ -35,11 +35,12 @@ class _BuildMetadataBuilder implements Builder {
     );
 
     // Emit code
-    final emitter = new DartEmitter(Allocator.simplePrefixing());
+    final emitter = DartEmitter(allocator: Allocator.simplePrefixing());
     final String fileContents = generatedLibrary.accept(emitter).toString();
 
     // Write file
-    final assetId = new AssetId(buildStep.inputId.package, 'lib/src/build_metadata.dart');
+    final assetId = 
+        AssetId(buildStep.inputId.package, 'lib/src/build_metadata.dart');
 
     await buildStep.writeAsString(assetId, fileContents);
   }
